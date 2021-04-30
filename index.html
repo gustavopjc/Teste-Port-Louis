@@ -167,6 +167,7 @@
       };
     },
     watch: {
+      // Observadores que limpam os formulário e contato selecionado
       showDialog() {
         if(!this.showDialog) {
           this.$refs.formContato.resetValidation();
@@ -174,7 +175,7 @@
         }
       },
       showDeleteDialog() {
-        if(!this.showDeleteDialog) {3
+        if(!this.showDeleteDialog) {
           this.$refs.formContato.resetValidation();
           this.clearSelectedContato();
         }
@@ -191,7 +192,6 @@
         this.selectedContato = {...this.contatos[index]};
         this.showDialog = true;
       },
-
       deleteItem(id) {
         const index = this.findItemById(id);
         this.selectedContato = {...this.contatos[index]};
@@ -204,7 +204,7 @@
         this.closeDeleteDialog();
       },
       findItemById(id) {
-        return this.contatos.findIndex(item => item.id == id);
+        return this.contatos.findIndex(item => item.id === id);
       },
       closeDialog(){
         this.showDialog = false;
