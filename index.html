@@ -4,25 +4,35 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/vuetify@1.x/dist/vuetify.min.css" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <meta charset="utf-8">
+  <title>Lista de contatos</title>
 </head>
 <body>
   <div id="app">
     <v-app>
       <v-content>
         <v-container>
-          <v-btn color="success" @click="showDialog = true" >Novo registro</v-btn>
+          <v-layout row wrap>
+            <v-flex xs12 class="text-lg-center table-title">
+              Lista de contatos
+            </v-flex>
+            
+          </v-layout>
+          <v-btn class="mb-3" color="success" @click="showDialog = true" >Novo registro</v-btn>
           <v-data-table
             :headers="headers"
             :items="contatos"
+            no-data-text="Não foram encontrados registros"
+            class="table-class"
             hide-actions
           >
           <template slot="items" slot-scope="props">
-            <tr>
+            <tr :class="{ 'telefone-background' : checkTelefoneStart(props.item.telefone) }">
               <td>
                 {{ props.item.nome }}
               </td>
               <td>
-                {{ props.item.telefone }}
+                {{ maskTelefone(props.item.telefone) }}
               </td>
               <td>
                 <v-icon @click="editItem(props.item.id)" >edit</v-icon>
@@ -45,16 +55,19 @@
           <v-divider></v-divider>
           <v-card-text>
             <span> </span>
-            <v-form ref="formContato">
+            <v-form ref="formContato" lazy-validation>
               <v-text-field
                 name="name"
                 label="Nome do contato"
                 v-model="selectedContato.nome"
+                :rules="[...requiredRule, ...nomeRule]"
               ></v-text-field>
               <v-text-field
                 name="name"
+                mask="(##) #####-####"
                 label="Telefone do contato"
                 v-model="selectedContato.telefone"
+                :rules="[...requiredRule, ...telefoneRule]"
               ></v-text-field>
               
             </v-form>
@@ -63,6 +76,9 @@
           <v-divider></v-divider>
 
           <v-card-actions class="justify-end">
+            <v-btn color="error"  @click="showDialog = false" flat>
+              Cancelar
+            </v-btn>
             <v-btn color="primary"  @click="saveUser()" flat>
               Salvar
             </v-btn>
@@ -87,7 +103,7 @@
             <v-btn color="error"  @click="showDeleteDialog = false" flat>
               Cancelar
             </v-btn>
-            <v-btn color="success"  @click="confirmItemDelete()" flat>
+            <v-btn color="success"  @click="confirmItemDelete(selectedContato.id)" flat>
               Confirmar
             </v-btn>
           </v-card-actions>
@@ -127,6 +143,9 @@
       return {
         showDialog: false,
         showDeleteDialog: false,
+        telefoneRule: [v => (v && v.length === 11) || 'Número de telefone inválido'],
+        nomeRule: [v => (this.validateNome(v)) || 'O nome deve ser composto por pelo menos 2 palavras com 3 letras cada.'],
+        requiredRule: [v => !!v || 'Este campo é obrigatório.'],
         selectedContato: {
           id: null,
           nome: null,
@@ -138,13 +157,7 @@
             { text: 'Telefone', value: 'telefone', sortable: false, align: 'center' },
             { text: 'Ações', value: 'telefone', sortable: false, align: 'center' },
         ],
-        contatos: [
-          {
-            id: 1,
-            nome: 'Gustavo',
-            telefone: 123456,
-          }
-        ],
+        contatos: [],
         showToast: false,
         toast: {
           color: null,
@@ -156,18 +169,20 @@
     watch: {
       showDialog() {
         if(!this.showDialog) {
+          this.$refs.formContato.resetValidation();
           this.clearSelectedContato();
         }
       },
       showDeleteDialog() {
-        if(!this.showDeleteDialog) {
+        if(!this.showDeleteDialog) {3
+          this.$refs.formContato.resetValidation();
           this.clearSelectedContato();
         }
       },
     },
     computed: {
       formTitle() {
-        return this.selectedContato ? 'Editar contato' : 'Novo contato';
+        return this.selectedContato.id ? 'Editar contato' : 'Novo contato';
       },
     },
     methods: {
@@ -209,16 +224,41 @@
         this.showToast = true;
       },
       saveUser() {
-        if(this.selectedContato.id === null || this.selectedContato.id === undefined) {
-          this.lastIdAdded++;
-          this.selectedContato.id = this.lastIdAdded;
-          this.contatos.push(this.selectedContato);
-        } else {
-          const index = this.findItemById(this.selectedContato.id);
-          Object.assign(this.contatos[index], this.selectedContato);
+        if(this.$refs.formContato.validate()){
+          if(this.selectedContato.id === null || this.selectedContato.id === undefined) {
+            this.lastIdAdded++;
+            this.selectedContato.id = this.lastIdAdded;
+            this.contatos.push(this.selectedContato);
+          } else {
+            const index = this.findItemById(this.selectedContato.id);
+            Object.assign(this.contatos[index], this.selectedContato);
+          }
+          this.showToastNotification('success', 'Operação realizada com sucesso');
+          this.closeDialog();
         }
-        this.showToastNotification('success', 'Operação realizada com sucesso');
-        this.closeDialog();
+      },
+      validateNome(name) {
+        if(name) {
+          // Remove espaços desnecessários no nome
+          let nameFixed = name.replace(/(^\s*)|(\s*$)/gi,"");
+          nameFixed = nameFixed.replace(/[ ]{2,}/gi," ");
+          // Separa o nome em arrays
+          const namesArray = name.split(' ');
+
+          // Verifica se tem pelo menos dois nomes
+          if (namesArray.length < 2) { return false };
+          
+          // Verifica se tem pelo menos dois nomes com mais de 3 letras
+          const filteredArray = namesArray.filter(item => item.length >= 3).length;
+          return filteredArray >= 2;
+        }
+      },
+      checkTelefoneStart(telefone){
+        return telefone.toString().startsWith('11');
+      },
+      maskTelefone(telefone) {
+        const maskedTelefone = telefone.toString().match(/(\d{2})(\d{5})(\d{4})/);
+        return  "(" + maskedTelefone[1] + ") " + maskedTelefone[2] + "-" + maskedTelefone[3];
       }
     },
   });
@@ -235,6 +275,19 @@
     font-weight: 700;
     font-size: 18px;
   }
-  
+  .telefone-background {
+    background-color: rgba(70, 70, 226, 0.452);
+  }
+  .telefone-background:hover {
+    background-color: rgb(70, 70, 226) !important;
+    font-weight: 1000 !important;
+  }
+  .table-class{
+    box-shadow: 0 0 2px 2px rgba(138, 136, 136, 0.39);
+  }
+  .table-title {
+    font-weight: 700;
+    font-size: 2rem;
+  }
 </style>
 </html>
